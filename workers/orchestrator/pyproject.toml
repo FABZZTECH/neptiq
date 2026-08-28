@@ -1,0 +1,22 @@
+[project]
+name = "neptiq-worker-orchestrator"
+version = "0.1.0"
+description = "ZONE T — workflow runtime, DAGs typed in code."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-db",
+    "neptiq-queue",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_worker_orchestrator"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-db = { workspace = true }
+neptiq-queue = { workspace = true }

@@ -1,0 +1,28 @@
+[project]
+name = "neptiq-worker-analyzer"
+version = "0.1.0"
+description = "ZONE T — rules, graph, findings."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-db",
+    "neptiq-rules",
+    "neptiq-graph",
+    "neptiq-evidence",
+    "neptiq-queue",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_worker_analyzer"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-db = { workspace = true }
+neptiq-rules = { workspace = true }
+neptiq-graph = { workspace = true }
+neptiq-evidence = { workspace = true }
+neptiq-queue = { workspace = true }

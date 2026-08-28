@@ -36,3 +36,22 @@ lerna-debug.log*
 # The SVG masters in brand/ are the single source of truth and ARE committed.
 # Regenerate this directory any time with `make brand`.
 apps/web/public/brand/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Local dev env files (never committed; see .env.example)
+.env.local

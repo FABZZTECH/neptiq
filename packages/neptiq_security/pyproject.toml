@@ -1,0 +1,20 @@
+[project]
+name = "neptiq-security"
+version = "0.1.0"
+description = "SSRF validator, taint types, sanitisers, envelope encryption. ZONE BOUNDARY package."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "cryptography==44.0.1",
+    "idna==3.10",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_security"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }

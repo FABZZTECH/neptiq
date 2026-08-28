@@ -1,0 +1,167 @@
+[project]
+name = "neptiq"
+version = "0.1.0"
+description = "NEPTIQ — search intelligence and digital growth system (workspace root)"
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-db",
+    "neptiq-url",
+    "neptiq-robots",
+    "neptiq-extract",
+    "neptiq-rules",
+    "neptiq-evidence",
+    "neptiq-graph",
+    "neptiq-queue",
+    "neptiq-security",
+    "neptiq-llm",
+]
+
+# ---------------------------------------------------------------------------
+# uv workspace. ARCHITECTURE §4: "Python 3.13, uv workspace".
+# packages/ holds ALL logic; apps/ and workers/ and services/ are thin entry
+# points that depend on packages. The dependency direction is enforced in CI
+# by tools/check_zone_imports.py (invariant 1) — not by convention.
+# ---------------------------------------------------------------------------
+[tool.uv.workspace]
+members = [
+    "packages/*",
+    "apps/api",
+    "workers/*",
+    "services/*",
+]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-db = { workspace = true }
+neptiq-url = { workspace = true }
+neptiq-robots = { workspace = true }
+neptiq-extract = { workspace = true }
+neptiq-rules = { workspace = true }
+neptiq-evidence = { workspace = true }
+neptiq-graph = { workspace = true }
+neptiq-queue = { workspace = true }
+neptiq-security = { workspace = true }
+neptiq-llm = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff==0.9.6",
+    "mypy==1.15.0",
+    "pytest==8.3.4",
+    "pytest-asyncio==0.25.3",
+    "pytest-cov==6.0.0",
+    "hypothesis==6.125.2",
+    "testcontainers[postgres,redis,minio]==4.9.1",
+    "respx==0.22.0",
+    "httpx==0.28.1",
+    "asyncpg==0.30.0",
+    "types-pyyaml==6.0.12.20241230",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [".venv", "apps/web", "node_modules"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # comprehensions
+    "UP",   # pyupgrade
+    "ASYNC",# flake8-async
+    "S",    # bandit — security
+    "ANN",  # annotations required
+    "RET",  # return consistency
+    "SIM",  # simplify
+    "TID",  # tidy imports (banned-api used for zone enforcement)
+    "PTH",  # pathlib
+    "ERA",  # commented-out code
+    "PL",   # pylint
+    "RUF",
+]
+ignore = [
+    "ANN401",  # allow typing.Any where genuinely needed (adapter boundaries)
+    "PLR0913", # argument count — adapter interfaces are wide by design
+    "S101",    # assert — used deliberately in tests and invariant checks
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "S105", "S106", "PLR2004"]
+"db/migrations/**" = ["ANN", "ERA001"]
+"tools/**" = ["S603", "S607"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "neptiq_core", "neptiq_db", "neptiq_url", "neptiq_robots", "neptiq_extract",
+    "neptiq_rules", "neptiq_evidence", "neptiq_graph", "neptiq_queue",
+    "neptiq_security", "neptiq_llm", "neptiq_api",
+]
+
+# ---------------------------------------------------------------------------
+# mypy — strict. A type error is a build failure.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+disallow_any_unimported = true
+disallow_untyped_defs = true
+no_implicit_reexport = true
+show_error_codes = true
+exclude = ["^\\.venv/", "^apps/web/", "^db/migrations/versions/"]
+mypy_path = "stubs:packages/neptiq_core/src:packages/neptiq_db/src:packages/neptiq_url/src:packages/neptiq_robots/src:packages/neptiq_extract/src:packages/neptiq_rules/src:packages/neptiq_evidence/src:packages/neptiq_graph/src:packages/neptiq_queue/src:packages/neptiq_security/src:packages/neptiq_llm/src:apps/api/src"
+
+# Local stubs for third-party packages that ship no py.typed. Writing a small
+# stub is preferred over ignore_missing_imports: an ignored import makes every
+# value from that library Any, which silently disables strict checking in the
+# module that uses it. See stubs/protego/__init__.pyi for the rationale.
+[[tool.mypy.overrides]]
+# testcontainers is only imported by CI-only integration tests; it has no
+# bearing on production type safety, and stubbing the whole Docker API surface
+# would be a large amount of code that proves nothing.
+module = ["testcontainers.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# OpenTelemetry is an optional runtime enrichment in neptiq_core.logging,
+# imported inside a suppress() block precisely so the system works without it
+# (P10). It is not a build-time dependency of the package.
+module = ["opentelemetry.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers --strict-config"
+markers = [
+    # ci_only: requires a Docker runtime (docker compose / testcontainers).
+    # These tests are WRITTEN and CORRECT but cannot execute in the authoring
+    # sandbox, which has no Docker daemon. They are the authoritative gate and
+    # run in GitHub Actions. See docs/ADR/0001 and README "Verification split".
+    # NEVER satisfy one of these by substituting SQLite for PostgreSQL or an
+    # in-memory fake for Redis/S3 — a substituted backend cannot exercise
+    # row-level security, which is the entire tenant-isolation model.
+    "ci_only: requires Docker; runs in GitHub Actions, skipped in sandbox",
+    "integration: touches a real PostgreSQL/Redis/MinIO instance",
+    "security: adversarial corpus — SSRF, injection, tenant isolation, XSS",
+    "property: Hypothesis property-based test",
+    "slow: long-running",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["packages", "apps/api/src", "workers", "services"]

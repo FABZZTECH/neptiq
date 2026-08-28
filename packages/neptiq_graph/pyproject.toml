@@ -1,0 +1,19 @@
+[project]
+name = "neptiq-graph"
+version = "0.1.0"
+description = "rustworkx in-memory link-graph analysis. One graph per run, never a graph database."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "rustworkx==0.16.0",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_graph"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }

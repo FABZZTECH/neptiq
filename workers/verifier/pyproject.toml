@@ -1,0 +1,27 @@
+[project]
+name = "neptiq-worker-verifier"
+version = "0.1.0"
+description = "ZONE T — deterministic assertions against the live site."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-db",
+    "neptiq-rules",
+    "neptiq-evidence",
+    "neptiq-url",
+    "httpx==0.28.1",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_worker_verifier"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-db = { workspace = true }
+neptiq-rules = { workspace = true }
+neptiq-evidence = { workspace = true }
+neptiq-url = { workspace = true }

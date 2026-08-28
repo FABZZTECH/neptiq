@@ -1,0 +1,24 @@
+[project]
+name = "neptiq-rules"
+version = "0.1.0"
+description = "Versioned rule registry and all detection rules. MUST NOT import neptiq_llm."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-url",
+    "neptiq-extract",
+    "neptiq-graph",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_rules"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-url = { workspace = true }
+neptiq-extract = { workspace = true }
+neptiq-graph = { workspace = true }

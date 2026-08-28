@@ -1,0 +1,25 @@
+[project]
+name = "neptiq-extract"
+version = "0.1.0"
+description = "DOM, structured data and content extraction. Operates on tainted input only."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-security",
+    "neptiq-url",
+    "selectolax==0.3.28",
+    "trafilatura==2.0.0",
+    "extruct==0.18.0",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_extract"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-security = { workspace = true }
+neptiq-url = { workspace = true }

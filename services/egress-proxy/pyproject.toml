@@ -1,0 +1,24 @@
+[project]
+name = "neptiq-egress-proxy"
+version = "0.1.0"
+description = "SSRF gate, DNS pinning, per-host and per-tenant token buckets. No DB."
+requires-python = "==3.13.*"
+dependencies = [
+    "neptiq-core",
+    "neptiq-security",
+    "fastapi==0.115.8",
+    "uvicorn[standard]==0.34.0",
+    "httpx==0.28.1",
+    "redis==5.2.1",
+]
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neptiq_egress_proxy"]
+
+[tool.uv.sources]
+neptiq-core = { workspace = true }
+neptiq-security = { workspace = true }
