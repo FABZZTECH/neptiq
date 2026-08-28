@@ -1,0 +1,72 @@
+# NEPTIQ OpenTelemetry collector — local development.
+#
+# ARCHITECTURE §4 requires observability be "vendor-neutral": the collector is
+# the seam that keeps it so. Application code speaks OTLP and knows nothing
+# about Tempo, Loki or Mimir; swapping the backend is a change to this file.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Bounded queueing. An unbounded collector under a 25,000-URL crawl becomes
+  # the memory problem instead of reporting it.
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  # ARCHITECTURE §14: credentials are "never logged", and CI performs "secret
+  # pattern scanning over source AND CAPTURED TRACES". A span attribute is the
+  # easiest place for a secret to escape, so they are deleted at the collector —
+  # the last hop we control — as well as at the source.
+  attributes/redact:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.cookie
+        action: delete
+      - key: http.response.header.set-cookie
+        action: delete
+      - key: db.statement.parameters
+        action: delete
+      - key: neptiq.credential
+        action: delete
+
+exporters:
+  # Dev only: traces to stdout. The Grafana stack (Tempo/Loki/Mimir) arrives
+  # with the observability node in §15; swapping this exporter is the only
+  # change that requires.
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  # Probed externally by the CI compose-up job: the collector image is
+  # distroless and has no shell for a container-internal healthcheck.
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, batch]
+      exporters: [debug]

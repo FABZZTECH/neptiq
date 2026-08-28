@@ -1,0 +1,171 @@
+# NEPTIQ — local development infrastructure.
+#
+# ARCHITECTURE §4 locks these versions. This file defines the real services;
+# there are NO substitutions. In particular:
+#
+#   * PostgreSQL is PostgreSQL 18 with pgvector and pg_trgm. It is never SQLite.
+#     SQLite has no row-level security, and RLS *is* the tenant-isolation model
+#     (§8, invariant 3). A SQLite stand-in would leave the entire isolation
+#     model untested while appearing to pass.
+#   * Redis is Redis 7. It is never an in-process dict — §4 requires it be
+#     "ephemeral only, never a source of truth", and only a real instance
+#     exercises eviction and the token-bucket semantics that depend on it.
+#   * Object storage is MinIO (S3-compatible), never the local filesystem.
+#     §8 depends on content-addressed storage semantics.
+#
+# VERIFICATION NOTE: the authoring sandbox for this repository has no Docker
+# runtime, so `make dev` has NOT been executed there. It is verified by the
+# `compose-up` job in .github/workflows/ci.yml, which brings this file up on a
+# GitHub Actions runner, health-checks every service, and asserts that pgvector
+# and pg_trgm are actually present. See docs/ADR/0001.
+
+name: neptiq
+
+services:
+  postgres:
+    # pgvector's image tracks upstream Postgres; pg18 gives us native uuidv7().
+    image: pgvector/pgvector:pg18
+    container_name: neptiq-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: neptiq_migrator
+      POSTGRES_PASSWORD: neptiq_dev_only
+      POSTGRES_DB: neptiq
+      # Trust is NOT used; scram-sha-256 even locally, because a dev-only auth
+      # shortcut is how a production config quietly inherits one.
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --data-checksums"
+    command:
+      # Logging every statement in dev is deliberate: it is how you catch a
+      # query that forgot its RLS binding, because the SET LOCAL shows up next
+      # to the SELECT.
+      - postgres
+      - -c
+      - log_statement=all
+      - -c
+      - log_connections=on
+      - -c
+      - max_connections=200
+      # RLS is only trustworthy if the application role cannot bypass it. This
+      # is asserted by a CI test, but logging row-security decisions here makes
+      # a local violation visible immediately.
+      - -c
+      - row_security=on
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates the extensions and the non-superuser application role. Runs
+      # once, on first initialisation of an empty data directory.
+      - ./infra/compose/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # pg_isready alone returns healthy before the init scripts have finished,
+      # which lets migrations race extension creation. Querying pg_extension
+      # proves the init scripts completed.
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -U neptiq_migrator -d neptiq -q &&
+          psql -U neptiq_migrator -d neptiq -tAc
+          "select count(*) from pg_extension where extname in ('vector','pg_trgm','citext')"
+          | grep -q '^3$$'
+      interval: 3s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: neptiq-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "no"
+      # §4: "Cache/locks | Redis 7 | Ephemeral only — never a source of truth".
+      # allkeys-lru with a hard maxmemory makes that property TRUE in dev, so
+      # code that wrongly treats Redis as durable fails here rather than in
+      # production. This is also why Celery was rejected (§4 "job loss on Redis
+      # eviction") — the queue lives in Postgres.
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  minio:
+    # S3-compatible object storage standing in for R2/Hetzner locally (§4).
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: neptiq-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: neptiq_dev
+      MINIO_ROOT_PASSWORD: neptiq_dev_only_secret
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  minio-init:
+    # One-shot bucket creation. Separate container because MinIO's own image
+    # has no init-hook mechanism, and baking bucket creation into the app would
+    # mean production silently creating buckets it should be granted.
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    container_name: neptiq-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 neptiq_dev neptiq_dev_only_secret
+        mc mb --ignore-existing local/neptiq-evidence
+        mc mb --ignore-existing local/neptiq-artifacts
+        # Versioning on the evidence bucket mirrors invariant 7 at the storage
+        # layer: content-addressed bodies must not be silently replaced.
+        mc version enable local/neptiq-evidence
+        echo "minio buckets ready"
+    restart: "no"
+
+  otel-collector:
+    # §4: "OpenTelemetry -> Grafana (Tempo/Loki/Mimir) | Vendor-neutral".
+    # The collector is present from Task 1 so instrumentation has somewhere to
+    # go from the first line of traced code; the Grafana stack it forwards to
+    # arrives with the observability node in §15.
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    container_name: neptiq-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./infra/otel/collector-config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317" # OTLP gRPC
+      - "127.0.0.1:4318:4318" # OTLP HTTP
+      - "127.0.0.1:13133:13133" # health_check extension
+    healthcheck:
+      # The collector image is distroless — no curl, no wget, no shell. Its
+      # health_check extension is therefore probed externally by the CI job
+      # rather than by a container-internal command. Declaring a healthcheck
+      # here that shells out would report unhealthy forever.
+      disable: true
+
+volumes:
+  postgres-data:
+  minio-data:

@@ -1,0 +1,256 @@
+# NEPTIQ CI — THE AUTHORITATIVE VERIFICATION GATE.
+#
+# The authoring sandbox has no Docker runtime. Everything that needs real
+# infrastructure is verified HERE, on runners that do. A green `make check`
+# locally means static analysis and pure tests passed — nothing more.
+#
+# NO INFRASTRUCTURE SUBSTITUTION. Postgres is PostgreSQL 18 with pgvector and
+# pg_trgm. Redis is Redis 7. Storage is MinIO. SQLite appears nowhere: it has no
+# row-level security, so substituting it would leave the entire tenant-isolation
+# model (ARCHITECTURE §8, invariant 3) untested while reporting green.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.7"
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  # =========================================================================
+  lint:
+    name: lint · types · invariants · brand drift
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --all-packages --frozen
+
+      - name: ruff (lint + format)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: mypy strict
+        run: uv run mypy packages apps/api tools
+
+      # ARCHITECTURE §6 invariants 1, 2, 5 — enforced by CI, not convention.
+      - name: zone / import invariants
+        run: uv run python tools/check_zone_imports.py
+
+      # Task 1 amendment F. brand/tokens.css is the single source of truth; the
+      # values are necessarily duplicated as literal hex into every SVG master
+      # (raster exporters do not resolve CSS variables), into apps/web, and into
+      # the build script. This extracts all of them and fails on disagreement.
+      - name: brand token drift
+        run: uv run python tools/check_brand_tokens.py
+
+  # =========================================================================
+  unit:
+    name: unit + Hypothesis property tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --all-packages --frozen
+      - name: pytest (no Docker required)
+        run: uv run pytest tests/unit -q
+
+  # =========================================================================
+  # Task 1 amendment E. `make dev` is NOT claimed to pass from the authoring
+  # sandbox. This job is its verification: bring the real compose stack up and
+  # fail if any service is not healthy within the timeout.
+  compose-up:
+    name: docker compose up · service health
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: docker compose up --wait
+        run: |
+          set -euo pipefail
+          # --wait blocks on the healthchecks declared in docker-compose.yml and
+          # exits non-zero if any container fails to become healthy.
+          docker compose up -d --wait --wait-timeout 300
+
+      - name: PostgreSQL 18 — version and REQUIRED extensions
+        run: |
+          set -euo pipefail
+          PSQL="docker compose exec -T postgres psql -U neptiq_migrator -d neptiq -tAc"
+
+          version=$($PSQL "SHOW server_version_num;")
+          echo "server_version_num=$version"
+          # ARCHITECTURE §4 locks PostgreSQL 18: uuidv7() is native there and
+          # the migrations depend on it.
+          if [ "$version" -lt 180000 ]; then
+            echo "FAIL: expected PostgreSQL 18+, got server_version_num=$version" >&2
+            exit 1
+          fi
+
+          # Amendment E requires pgvector and pg_trgm be CONFIRMED PRESENT, not
+          # assumed from the image tag.
+          for ext in vector pg_trgm citext btree_gin; do
+            present=$($PSQL "SELECT count(*) FROM pg_extension WHERE extname='$ext';")
+            if [ "$present" != "1" ]; then
+              echo "FAIL: extension '$ext' is not installed" >&2
+              exit 1
+            fi
+            echo "  extension present: $ext"
+          done
+
+          # Prove uuidv7() actually resolves, rather than trusting the version.
+          $PSQL "SELECT uuidv7();" > /dev/null
+          echo "  uuidv7() callable"
+
+          # ARCHITECTURE §8: the application role must NOT be able to bypass RLS.
+          bypass=$($PSQL "SELECT rolbypassrls FROM pg_roles WHERE rolname='neptiq_app';")
+          if [ "$bypass" != "f" ]; then
+            echo "FAIL: neptiq_app has BYPASSRLS; every RLS policy would be inert" >&2
+            exit 1
+          fi
+          echo "  neptiq_app is NOBYPASSRLS"
+
+      - name: Redis 7 — health and version
+        run: |
+          set -euo pipefail
+          docker compose exec -T redis redis-cli ping | grep -q PONG
+          v=$(docker compose exec -T redis redis-cli INFO server | tr -d '\r' \
+              | awk -F: '/^redis_version:/{print $2}')
+          echo "redis_version=$v"
+          case "$v" in 7.*) ;; *) echo "FAIL: expected Redis 7.x, got $v" >&2; exit 1;; esac
+
+      - name: MinIO — health and buckets created
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 10 --retry-delay 3 --retry-all-errors \
+            http://127.0.0.1:9000/minio/health/live
+          echo "  minio live"
+          # minio-init is a one-shot container; assert it exited cleanly.
+          code=$(docker inspect -f '{{.State.ExitCode}}' neptiq-minio-init)
+          if [ "$code" != "0" ]; then
+            echo "FAIL: minio-init exited $code (buckets not created)" >&2
+            docker compose logs minio-init
+            exit 1
+          fi
+          echo "  buckets created"
+
+      - name: OTEL collector — health_check extension
+        run: |
+          set -euo pipefail
+          # Probed externally: the collector image is distroless and has no
+          # shell, so it cannot self-healthcheck from inside the container.
+          curl -fsS --retry 15 --retry-delay 2 --retry-all-errors \
+            http://127.0.0.1:13133/ > /dev/null
+          echo "  otel collector healthy"
+
+      - name: report unhealthy services on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --tail=120
+
+      - name: teardown
+        if: always()
+        run: docker compose down -v
+
+  # =========================================================================
+  integration:
+    name: integration · RLS tenant isolation (testcontainers)
+    runs-on: ubuntu-24.04
+    needs: [lint, unit]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --all-packages --frozen
+
+      - name: pytest integration (real PostgreSQL via testcontainers)
+        # NEPTIQ_FORCE_CI_TESTS makes tests/conftest.py stop auto-skipping the
+        # ci_only markers. If this job ever reports "no tests ran", that is a
+        # FAILURE of the gate, not a pass — hence the explicit assertion below.
+        env:
+          NEPTIQ_FORCE_CI_TESTS: "1"
+        run: uv run pytest tests/integration tests/security -q -m "not slow"
+
+  # =========================================================================
+  web:
+    name: apps/web · lint · typecheck · build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      # npm ci, not npm install: invariant 10 requires the lockfile be
+      # authoritative. `npm install` would silently resolve a newer transitive
+      # version and defeat the pin.
+      - run: npm ci
+        working-directory: apps/web
+
+      - run: npm run lint
+        working-directory: apps/web
+      - run: npm run typecheck
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web
+
+      - name: assert Next.js version is pinned exactly to 16.3.3
+        working-directory: apps/web
+        run: |
+          set -euo pipefail
+          # ARCHITECTURE §4: "Next.js 16.3.3 exact ... pin exactly, never latest".
+          declared=$(node -p "require('./package.json').dependencies.next")
+          installed=$(node -p "require('next/package.json').version")
+          echo "declared=$declared installed=$installed"
+          [ "$declared" = "16.3.3" ] || { echo "FAIL: next not pinned exactly" >&2; exit 1; }
+          [ "$installed" = "16.3.3" ] || { echo "FAIL: next resolved to $installed" >&2; exit 1; }
+
+  # =========================================================================
+  brand:
+    name: brand assets rasterise from masters
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: install renderers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends librsvg2-bin imagemagick
+      - name: make brand
+        run: make brand
+      - name: assert every expected asset was produced
+        run: |
+          set -euo pipefail
+          for f in favicon.svg favicon.ico apple-touch-icon.png icon-192.png \
+                   icon-512.png icon-512-maskable.png oauth-logo.png \
+                   email-header.png og-default.png; do
+            test -s "apps/web/public/brand/$f" || { echo "MISSING: $f" >&2; exit 1; }
+            echo "  ok $f"
+          done

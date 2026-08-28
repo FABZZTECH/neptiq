@@ -1,26 +1,89 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/*
+ * Tailwind v4 theme bridge.
+ *
+ * Tokens are declared once in styles/tokens.css as plain CSS custom properties
+ * and mapped into Tailwind's theme here. Two reasons for that split rather than
+ * defining colours directly in @theme:
+ *
+ *  1. The tokens file is readable by tools/check_brand_tokens.py without a
+ *     Tailwind or PostCSS parse, which is what makes the CI drift check simple
+ *     and reliable.
+ *  2. Server-rendered emails and the brand preview page can consume the same
+ *     custom properties without Tailwind being involved at all.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-muted: var(--on-surface-muted);
+  --color-border-default: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-highlight: var(--highlight);
+
+  --color-state-verified: var(--state-verified);
+  --color-state-failed: var(--state-failed);
+  --color-state-pending: var(--state-pending);
+  --color-state-not-measurable: var(--state-not-measurable);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Focus visibility is not optional. The primary users of this product are
+ * professionals working through long lists of findings; keyboard navigation is
+ * the fast path, and an invisible focus ring makes it unusable.
+ */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/*
+ * Evidence excerpts and any verbatim crawled string.
+ *
+ * `white-space: pre-wrap` preserves the bytes as observed — collapsing
+ * whitespace would misrepresent the evidence. `overflow-wrap: anywhere` stops a
+ * single long unbroken token (a 4KB query string, a base64 blob) from blowing
+ * out the layout.
+ *
+ * NOTE: this class styles content that is ALWAYS rendered as a React text
+ * child, never as markup. Invariant 5 forbids `dangerouslySetInnerHTML`
+ * anywhere in apps/web, and tools/check_no_dangerous_html.py enforces it.
+ */
+.evidence-excerpt {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
