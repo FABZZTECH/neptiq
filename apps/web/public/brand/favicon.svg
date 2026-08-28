@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="neptiq-mark-title">
-  <title id="neptiq-mark-title">NEPTIQ mark: a geometric letterform N encircled by a single orbital ring</title>
-  <!-- Orbital ring: single stroked circle, radius 26, centred on (32,32), stroke-width 5 (>=2 min at this viewBox) -->
-  <path d="M58,32 A26,26 0 1 1 6,32 A26,26 0 1 1 58,32" fill="none" stroke="#0E5C5C" stroke-width="5"/>
-  <!-- N letterform: single path, 3 subpaths (left bar, right bar, diagonal), all clockwise winding -->
-  <path fill="#C9A227" d="M18,16 L24,16 L24,48 L18,48 Z M40,16 L46,16 L46,48 L40,48 Z M18,16 L24,16 L46,48 L40,48 Z"/>
-  <!-- Orbit dot: small satellite sitting on the ring, upper-right -->
-  <path fill="#C9A227" d="M53.88,13.62 A3.5,3.5 0 1 1 46.88,13.62 A3.5,3.5 0 1 1 53.88,13.62"/>
-</svg>

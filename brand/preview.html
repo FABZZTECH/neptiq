@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NEPTIQ — Brand Asset Preview</title>
+<style>
+  :root {
+    --neptiq-gold:  #C9A227;
+    --neptiq-teal:  #0E5C5C;
+    --neptiq-ink:   #0B0F14;
+    --neptiq-paper: #FAFAF8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px;
+    background: #E8E8E4;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--neptiq-ink);
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 40px 0 12px; padding-top: 24px; border-top: 1px solid #ccc; }
+  p.sub { color: #555; margin: 0 0 24px; font-size: 13px; }
+  .swatches { display: flex; gap: 16px; margin: 0 0 32px; }
+  .swatch { display: flex; align-items: center; gap: 8px; font-size: 12px; font-family: monospace; }
+  .swatch .chip { width: 20px; height: 20px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.15); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 100px repeat(6, 1fr);
+    gap: 1px;
+    background: #ccc;
+    border: 1px solid #ccc;
+  }
+  .grid > div {
+    background: #fff;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+  }
+  .grid .label {
+    background: #f4f4f2;
+    font-size: 11px;
+    font-family: monospace;
+    justify-content: flex-start;
+    align-items: center;
+    padding-left: 10px;
+    color: #444;
+  }
+  .row-header {
+    background: #333;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    justify-content: flex-start;
+    padding-left: 10px;
+  }
+  .bg-white  { background: var(--neptiq-paper) !important; }
+  .bg-dark   { background: var(--neptiq-ink) !important; }
+  .bg-white img, .bg-dark img { display: block; }
+
+  .mono-light { color: var(--neptiq-ink); }
+  .mono-dark  { color: var(--neptiq-paper); }
+
+  .lockup-wide  { grid-column: 2 / span 6; }
+  .lockup-strip { display: flex; align-items: center; gap: 32px; padding: 16px; flex-wrap: wrap; }
+  .lockup-strip img { display: block; }
+
+  .exported-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+  }
+  .exported-item {
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 12px;
+    text-align: center;
+    font-size: 11px;
+    font-family: monospace;
+  }
+  .exported-item img { max-width: 100%; height: auto; margin-bottom: 8px; }
+  .exported-item.dark-cell { background: var(--neptiq-ink); color: var(--neptiq-paper); }
+
+  footer { margin-top: 48px; font-size: 11px; color: #888; }
+</style>
+</head>
+<body>
+
+<h1>NEPTIQ — Brand Asset Preview</h1>
+<p class="sub">Rendered directly from the SVG masters in <code>brand/</code>. No raster fallback, no font dependency for the wordmark/lockups — every glyph below is an outlined vector path.</p>
+
+<div class="swatches">
+  <div class="swatch"><span class="chip" style="background:#C9A227"></span>--neptiq-gold #C9A227</div>
+  <div class="swatch"><span class="chip" style="background:#0E5C5C"></span>--neptiq-teal #0E5C5C</div>
+  <div class="swatch"><span class="chip" style="background:#0B0F14"></span>--neptiq-ink #0B0F14</div>
+  <div class="swatch"><span class="chip" style="background:#FAFAF8;border-color:#999"></span>--neptiq-paper #FAFAF8</div>
+</div>
+
+<h2>1. neptiq-mark.svg — on white</h2>
+<div class="grid" style="grid-template-columns: 100px repeat(6,1fr);">
+  <div class="label">size</div>
+  <div class="label">16px</div>
+  <div class="label">24px</div>
+  <div class="label">32px</div>
+  <div class="label">64px</div>
+  <div class="label">128px</div>
+  <div class="label">512px</div>
+
+  <div class="row-header">mark</div>
+  <div class="bg-white"><img src="neptiq-mark.svg" width="16" height="16"></div>
+  <div class="bg-white"><img src="neptiq-mark.svg" width="24" height="24"></div>
+  <div class="bg-white"><img src="neptiq-mark.svg" width="32" height="32"></div>
+  <div class="bg-white"><img src="neptiq-mark.svg" width="64" height="64"></div>
+  <div class="bg-white"><img src="neptiq-mark.svg" width="128" height="128"></div>
+  <div class="bg-white" style="min-height:140px;"><img src="neptiq-mark.svg" width="128" height="128"></div>
+</div>
+
+<h2>2. neptiq-mark.svg — on near-black</h2>
+<div class="grid" style="grid-template-columns: 100px repeat(6,1fr);">
+  <div class="label">size</div>
+  <div class="label">16px</div>
+  <div class="label">24px</div>
+  <div class="label">32px</div>
+  <div class="label">64px</div>
+  <div class="label">128px</div>
+  <div class="label">512px</div>
+
+  <div class="row-header">mark</div>
+  <div class="bg-dark"><img src="neptiq-mark.svg" width="16" height="16"></div>
+  <div class="bg-dark"><img src="neptiq-mark.svg" width="24" height="24"></div>
+  <div class="bg-dark"><img src="neptiq-mark.svg" width="32" height="32"></div>
+  <div class="bg-dark"><img src="neptiq-mark.svg" width="64" height="64"></div>
+  <div class="bg-dark"><img src="neptiq-mark.svg" width="128" height="128"></div>
+  <div class="bg-dark" style="min-height:140px;"><img src="neptiq-mark.svg" width="128" height="128"></div>
+</div>
+
+<h2>3. neptiq-mark-mono.svg (currentColor) — light context (ink glyph on white) vs dark context (paper glyph on ink)</h2>
+<div class="grid" style="grid-template-columns: 100px repeat(6,1fr);">
+  <div class="label">size</div>
+  <div class="label">16px</div>
+  <div class="label">24px</div>
+  <div class="label">32px</div>
+  <div class="label">64px</div>
+  <div class="label">128px</div>
+  <div class="label">512px</div>
+
+  <div class="row-header">mono / white bg</div>
+  <div class="bg-white mono-light"><img src="neptiq-mark-mono.svg" width="16" height="16"></div>
+  <div class="bg-white mono-light"><img src="neptiq-mark-mono.svg" width="24" height="24"></div>
+  <div class="bg-white mono-light"><img src="neptiq-mark-mono.svg" width="32" height="32"></div>
+  <div class="bg-white mono-light"><img src="neptiq-mark-mono.svg" width="64" height="64"></div>
+  <div class="bg-white mono-light"><img src="neptiq-mark-mono.svg" width="128" height="128"></div>
+  <div class="bg-white mono-light" style="min-height:140px;"><img src="neptiq-mark-mono.svg" width="128" height="128"></div>
+
+  <div class="row-header">mono / dark bg</div>
+  <div class="bg-dark mono-dark"><img src="neptiq-mark-mono.svg" width="16" height="16"></div>
+  <div class="bg-dark mono-dark"><img src="neptiq-mark-mono.svg" width="24" height="24"></div>
+  <div class="bg-dark mono-dark"><img src="neptiq-mark-mono.svg" width="32" height="32"></div>
+  <div class="bg-dark mono-dark"><img src="neptiq-mark-mono.svg" width="64" height="64"></div>
+  <div class="bg-dark mono-dark"><img src="neptiq-mark-mono.svg" width="128" height="128"></div>
+  <div class="bg-dark mono-dark" style="min-height:140px;"><img src="neptiq-mark-mono.svg" width="128" height="128"></div>
+</div>
+<p class="sub">Note: <code>currentColor</code> requires the SVG's fill/stroke to inherit the surrounding CSS <code>color</code>. Since the raw file is loaded via <code>&lt;img&gt;</code> here (which sandboxes the SVG and does NOT inherit page CSS), the two rows above will actually render identically (the SVG's own default text colour). To see true <code>currentColor</code> behaviour, the mono mark must be inlined as <code>&lt;svg&gt;</code> markup or referenced via CSS <code>mask</code> — demonstrated in section 3b below.</p>
+
+<h2>3b. neptiq-mark-mono.svg — inlined (true currentColor inheritance)</h2>
+<div class="grid" style="grid-template-columns: 100px repeat(6,1fr);">
+  <div class="label">size</div>
+  <div class="label">16px</div>
+  <div class="label">24px</div>
+  <div class="label">32px</div>
+  <div class="label">64px</div>
+  <div class="label">128px</div>
+  <div class="label">512px</div>
+  <div class="row-header">inline / white bg</div>
+  <div class="bg-white mono-light" data-inline="16"></div>
+  <div class="bg-white mono-light" data-inline="24"></div>
+  <div class="bg-white mono-light" data-inline="32"></div>
+  <div class="bg-white mono-light" data-inline="64"></div>
+  <div class="bg-white mono-light" data-inline="128"></div>
+  <div class="bg-white mono-light" style="min-height:140px;" data-inline="128"></div>
+  <div class="row-header">inline / dark bg</div>
+  <div class="bg-dark mono-dark" data-inline="16"></div>
+  <div class="bg-dark mono-dark" data-inline="24"></div>
+  <div class="bg-dark mono-dark" data-inline="32"></div>
+  <div class="bg-dark mono-dark" data-inline="64"></div>
+  <div class="bg-dark mono-dark" data-inline="128"></div>
+  <div class="bg-dark mono-dark" style="min-height:140px;" data-inline="128"></div>
+</div>
+
+<h2>4. neptiq-wordmark.svg — outlined paths, no &lt;text&gt;, renders identically with all fonts disabled</h2>
+<div class="lockup-strip" style="background:#fff;">
+  <img src="neptiq-wordmark.svg" width="120">
+  <img src="neptiq-wordmark.svg" width="220">
+  <img src="neptiq-wordmark.svg" width="360">
+</div>
+<div class="lockup-strip" style="background:var(--neptiq-ink);">
+  <img src="neptiq-wordmark.svg" width="120" style="filter:invert(1) brightness(2);">
+  <span style="color:#888;font-size:11px;font-family:monospace;">^ wordmark master is ink-on-transparent; dark-bg variant is baked into the lockups below, not a separate wordmark file.</span>
+</div>
+
+<h2>5. Lockups — horizontal &amp; stacked, light and dark variants</h2>
+<div class="lockup-strip" style="background:var(--neptiq-paper);">
+  <div>
+    <div style="font-size:11px;font-family:monospace;margin-bottom:6px;color:#666;">neptiq-lockup-horizontal.svg</div>
+    <img src="neptiq-lockup-horizontal.svg" width="280">
+  </div>
+</div>
+<div class="lockup-strip" style="background:var(--neptiq-ink);">
+  <div>
+    <div style="font-size:11px;font-family:monospace;margin-bottom:6px;color:#aaa;">neptiq-lockup-horizontal-dark.svg</div>
+    <img src="neptiq-lockup-horizontal-dark.svg" width="280">
+  </div>
+</div>
+<div class="lockup-strip" style="background:var(--neptiq-paper);">
+  <div>
+    <div style="font-size:11px;font-family:monospace;margin-bottom:6px;color:#666;">neptiq-lockup-stacked.svg</div>
+    <img src="neptiq-lockup-stacked.svg" width="160">
+  </div>
+</div>
+<div class="lockup-strip" style="background:var(--neptiq-ink);">
+  <div>
+    <div style="font-size:11px;font-family:monospace;margin-bottom:6px;color:#aaa;">neptiq-lockup-stacked-dark.svg</div>
+    <img src="neptiq-lockup-stacked-dark.svg" width="160">
+  </div>
+</div>
+
+<h2>6. Legibility check at 16px (acceptance criterion)</h2>
+<div class="lockup-strip" style="background:#fff;">
+  <img src="neptiq-mark.svg" width="16" height="16">
+  <img src="neptiq-mark.svg" width="16" height="16" style="outline:1px solid red;">
+  <span style="font-size:11px;font-family:monospace;color:#666;">16x16px, no scaling artefacts expected — ring stroke-width 5/64 &times; 16 = 1.25px rendered, N strokes 6/64 &times; 16 = 1.5px rendered.</span>
+</div>
+
+<h2>7. Exported raster assets (generated by scripts/build-brand.sh into apps/web/public/brand/)</h2>
+<p class="sub">These are build artifacts, not masters. Regenerate with <code>make brand</code>. Not committed to git.</p>
+<div class="exported-grid" id="exported-grid"></div>
+
+<footer>
+  NEPTIQ brand preview · generated masters live in <code>brand/*.svg</code> · colour tokens in <code>brand/tokens.css</code> · export pipeline in <code>scripts/build-brand.sh</code>
+</footer>
+
+<script>
+  // Inline the mono SVG so currentColor genuinely inherits from the parent's CSS `color`.
+  fetch('neptiq-mark-mono.svg').then(r => r.text()).then(svgText => {
+    document.querySelectorAll('[data-inline]').forEach(el => {
+      const size = el.getAttribute('data-inline');
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = svgText;
+      const svg = wrapper.querySelector('svg');
+      svg.setAttribute('width', size);
+      svg.setAttribute('height', size);
+      el.appendChild(svg);
+    });
+  });
+
+  // List exported raster assets relative to ../apps/web/public/brand/
+  const exported = [
+    'favicon.svg', 'favicon.ico', 'apple-touch-icon.png',
+    'icon-192.png', 'icon-512.png', 'icon-512-maskable.png',
+    'oauth-logo.png', 'email-header.png', 'og-default.png'
+  ];
+  const darkBg = new Set(['og-default.png']); // rendered on ink background already
+  const grid = document.getElementById('exported-grid');
+  exported.forEach(name => {
+    const item = document.createElement('div');
+    item.className = 'exported-item' + (darkBg.has(name) ? ' dark-cell' : '');
+    const img = document.createElement('img');
+    img.src = '../apps/web/public/brand/' + name;
+    img.alt = name;
+    item.appendChild(img);
+    const label = document.createElement('div');
+    label.textContent = name;
+    item.appendChild(label);
+    grid.appendChild(item);
+  });
+</script>
+
+</body>
+</html>

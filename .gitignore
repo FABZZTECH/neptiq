@@ -31,3 +31,8 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+
+# NEPTIQ brand — generated raster/ico output only.
+# The SVG masters in brand/ are the single source of truth and ARE committed.
+# Regenerate this directory any time with `make brand`.
+apps/web/public/brand/
