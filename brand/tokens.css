@@ -1,0 +1,18 @@
+/*
+ * NEPTIQ brand colour tokens — single source of truth.
+ * Referenced by every SVG master via currentColor / CSS custom properties
+ * where the target (browser, preview.html) supports CSS in SVG, and
+ * hard-copied as literal hex into fill attributes for masters that must
+ * remain valid standalone SVG for raster export tools (resvg/rsvg-convert)
+ * which do not resolve external stylesheets reliably.
+ *
+ * If you change a value here, you MUST update the matching literal hex
+ * in each brand/*.svg master by hand. There is no build-time token
+ * substitution in this pipeline (kept deliberately simple / dependency-free).
+ */
+:root {
+  --neptiq-gold:  #C9A227;
+  --neptiq-teal:  #0E5C5C;
+  --neptiq-ink:   #0B0F14;
+  --neptiq-paper: #FAFAF8;
+}

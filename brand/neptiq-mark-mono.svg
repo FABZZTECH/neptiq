@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="neptiq-mark-mono-title">
+  <title id="neptiq-mark-mono-title">NEPTIQ mark (monochrome): a geometric letterform N encircled by a single orbital ring, colour controlled via currentColor</title>
+  <!-- Orbital ring -->
+  <path d="M58,32 A26,26 0 1 1 6,32 A26,26 0 1 1 58,32" fill="none" stroke="currentColor" stroke-width="5"/>
+  <!-- N letterform -->
+  <path fill="currentColor" d="M18,16 L24,16 L24,48 L18,48 Z M40,16 L46,16 L46,48 L40,48 Z M18,16 L24,16 L46,48 L40,48 Z"/>
+  <!-- Orbit dot -->
+  <path fill="currentColor" d="M53.88,13.62 A3.5,3.5 0 1 1 46.88,13.62 A3.5,3.5 0 1 1 53.88,13.62"/>
+</svg>

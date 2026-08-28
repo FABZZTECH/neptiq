@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 64" width="280" height="64" role="img" aria-labelledby="neptiq-lockup-h-dark-title">
+  <title id="neptiq-lockup-h-dark-title">NEPTIQ horizontal lockup: orbital N mark beside the NEPTIQ wordmark, for dark backgrounds</title>
+  <g>
+    <path d="M58,32 A26,26 0 1 1 6,32 A26,26 0 1 1 58,32" fill="none" stroke="#0E5C5C" stroke-width="5"/>
+    <path fill="#C9A227" d="M18,16 L24,16 L24,48 L18,48 Z M40,16 L46,16 L46,48 L40,48 Z M18,16 L24,16 L46,48 L40,48 Z"/>
+    <path fill="#C9A227" d="M53.88,13.62 A3.5,3.5 0 1 1 46.88,13.62 A3.5,3.5 0 1 1 53.88,13.62"/>
+  </g>
+  <g transform="translate(80,8) scale(0.66667)">
+    <g transform="translate(8,6)" fill="#FAFAF8">
+      <g transform="translate(0,0)">
+        <rect x="0" y="0" width="10" height="60"/>
+        <rect x="34" y="0" width="10" height="60"/>
+        <path d="M0,0 L10,0 L44,60 L34,60 Z"/>
+      </g>
+      <g transform="translate(58,0)">
+        <rect x="0" y="0" width="10" height="60"/>
+        <rect x="0" y="0" width="32" height="10"/>
+        <rect x="0" y="25" width="26" height="10"/>
+        <rect x="0" y="50" width="32" height="10"/>
+      </g>
+      <g transform="translate(104,0)">
+        <rect x="0" y="0" width="10" height="60"/>
+        <path fill-rule="evenodd" d="M0,0 L32,0 L32,34 L0,34 Z M10,10 L22,10 L22,24 L10,24 Z"/>
+      </g>
+      <g transform="translate(150,0)">
+        <rect x="0" y="0" width="34" height="10"/>
+        <rect x="12" y="0" width="10" height="60"/>
+      </g>
+      <g transform="translate(198,0)">
+        <rect x="0" y="0" width="10" height="60"/>
+      </g>
+      <g transform="translate(222,0)">
+        <path fill-rule="evenodd" d="M55,29 A27,27 0 1 1 1,29 A27,27 0 1 1 55,29 M45,29 A17,17 0 1 1 11,29 A17,17 0 1 1 45,29"/>
+        <path d="M38,39 L48,39 L61,60 L51,60 Z"/>
+      </g>
+    </g>
+  </g>
+</svg>
