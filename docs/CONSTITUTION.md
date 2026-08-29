@@ -167,7 +167,37 @@ must not import the LLM gateway; CI enforces this.
 
 ---
 
-## 8. AMENDMENT
+## 8. AGENT AUTHORITY AND ITS LIMITS
+
+An automated agent may author application code, tests, migrations, tooling and
+documentation in this repository. It may not author, edit, rename or delete the
+definitions of its own verification gates.
+
+Concretely: `.github/workflows/**` is human-committed only.
+
+**Reasoning.** An agent that can edit the gates that judge its work can also
+weaken them, and the most likely form of that is not sabotage but convenience —
+relaxing an assertion to make a red build green. The failure is invisible,
+because the very mechanism that would report it is the thing that was changed.
+This is the same failure class as a test suite that passes while collecting
+nothing, except self-inflicted and harder to detect. The thing being tested
+does not control the test.
+
+This also follows from P3 (verification before claim). A claim of verification
+is only worth the independence of the verifier.
+
+**To propose a CI change**, an agent writes the complete intended file content
+to `docs/ci-proposed/<filename>.yml`, explains the diff and the reason in its
+report, and stops. A human reviews and commits it. The proposed copy is
+tracked, so the intent lives in history and is reviewable as a diff.
+
+A drift check compares the live workflow against the proposed copy and fails
+when they disagree. This keeps the proposal honest without granting write
+access to the real file.
+
+---
+
+## 9. AMENDMENT
 
 This document changes only by an ADR in `docs/ADR/` explaining what changed,
 why, and what evidence prompted it. Silent edits are a process violation.

@@ -76,6 +76,7 @@ test-security: ## Adversarial corpus: SSRF, injection, tenant isolation, XSS
 invariants: ## ARCHITECTURE §6 invariants + brand-token drift
 	$(UV) run python tools/check_zone_imports.py
 	$(UV) run python tools/check_brand_tokens.py
+	$(UV) run python tools/check_ci_drift.py
 
 # --- Brand ----------------------------------------------------------------
 

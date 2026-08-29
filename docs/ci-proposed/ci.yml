@@ -1,5 +1,20 @@
 # NEPTIQ CI — THE AUTHORITATIVE VERIFICATION GATE.
 #
+# ---------------------------------------------------------------------------
+# THIS FILE IS HUMAN-COMMITTED ONLY. ARCHITECTURE §6 invariant 11.
+#
+# An automated agent must not author, edit, rename or delete anything under
+# .github/workflows/. It proposes a change by writing the complete intended
+# file to docs/ci-proposed/<name>.yml and stopping; a human reviews and
+# commits it here. Rationale in CONSTITUTION.md §8: an agent that can edit
+# its own verification gates can weaken them, and the failure is invisible
+# because the reporting mechanism is what changed. The thing being tested
+# does not control the test.
+#
+# The `ci-drift` step below compares this live file against its proposed
+# copy and fails when they disagree, so the proposal cannot silently rot.
+# ---------------------------------------------------------------------------
+#
 # The authoring sandbox has no Docker runtime. Everything that needs real
 # infrastructure is verified HERE, on runners that do. A green `make check`
 # locally means static analysis and pure tests passed — nothing more.
@@ -60,6 +75,16 @@ jobs:
       # the build script. This extracts all of them and fails on disagreement.
       - name: brand token drift
         run: uv run python tools/check_brand_tokens.py
+
+      # ARCHITECTURE §6 invariant 11. The agent cannot write .github/workflows/,
+      # so it proposes CI changes in docs/ci-proposed/. This fails the build if
+      # the live workflow and the proposed copy have diverged — without that,
+      # the proposed copy rots and reviewing it tells you nothing about what
+      # actually runs. Compares parsed YAML, not bytes: a comment reflow is not
+      # a behavioural change, and failing on one would train people to ignore
+      # this check.
+      - name: CI definition drift (live vs docs/ci-proposed)
+        run: uv run python tools/check_ci_drift.py
 
   # =========================================================================
   unit:

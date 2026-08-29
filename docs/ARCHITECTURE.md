@@ -196,6 +196,11 @@ Each is enforced by CI, not by convention.
 9. A complete audit must be producible with all external LLM providers
    disabled.
 10. Dependencies are pinned; lockfiles are committed.
+11. `.github/workflows/**` is human-committed only. An automated agent must
+    not author, edit, rename or delete a CI definition; it proposes changes as
+    a complete file in `docs/ci-proposed/` and stops. A drift check fails the
+    build when the live workflow and the proposed copy disagree. Rationale in
+    CONSTITUTION.md §8: the thing being tested does not control the test.
 
 ## 7. ENVIRONMENT VARIABLES
 
