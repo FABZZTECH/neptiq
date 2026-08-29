@@ -15,7 +15,8 @@ COMPOSE ?= docker compose
 
 .PHONY: help dev down logs ps migrate migrate-new seed \
         lint format typecheck test test-property test-integration test-security \
-        invariants brand api-types web-install web-build web-lint check ci clean
+        invariants brand api-types web-install web-build web-lint web-lint-clean \
+        check ci clean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -28,8 +29,15 @@ dev: ## Bring up PostgreSQL 18 + Redis 7 + MinIO + OTEL collector
 	@# is expected and does not change the architecture. Verified by the
 	@# compose-up job in CI. NO substitutions are made anywhere for these
 	@# services — see docker-compose.yml and docs/ADR/0001.
-	$(COMPOSE) up -d --wait
+	@#
+	@# --wait is scoped to the services that declare a healthcheck. `docker
+	@# compose up --wait` fails on any service without one, and otel-collector
+	@# cannot have one: the image is distroless, so there is no shell for a
+	@# container-internal probe. Confirmed by a real CI run — see ADR entry 10.
+	$(COMPOSE) up -d --wait --wait-timeout 300 postgres redis minio
+	$(COMPOSE) up -d otel-collector minio-init
 	@echo "infrastructure up. next: make migrate"
+	@echo "otel collector health: curl -fsS http://127.0.0.1:13133/"
 
 down: ## Stop services, keep volumes
 	$(COMPOSE) down
@@ -91,8 +99,20 @@ web-install:
 web-build: ## next build
 	cd apps/web && npm run build
 
-web-lint:
-	cd apps/web && npm run lint && npm run typecheck
+web-lint: ## eslint + tsc (builds first — see below)
+	@# `npm run build` BEFORE typecheck, matching the CI job order. Next.js
+	@# generates global route types (LayoutProps, PageProps, the route union)
+	@# into .next/types/ during the build, and app/layout.tsx depends on them.
+	@# Typechecking first passes only when a PREVIOUS build left .next/types/
+	@# on disk — which is how this repo reported green locally while CI failed
+	@# with TS2304 on a fresh checkout. See ADR entry 11.
+	cd apps/web && npm run lint && npm run build && npm run typecheck
+
+web-lint-clean: ## web-lint from a pristine tree (catches stale-state false passes)
+	@# Reproduces what CI actually sees. Use this before claiming apps/web is
+	@# green; plain `web-lint` can inherit generated state from earlier runs.
+	rm -rf apps/web/.next apps/web/tsconfig.tsbuildinfo
+	$(MAKE) web-lint
 
 api-types: ## Regenerate apps/web/lib/api from the OpenAPI document
 	@echo "generator lands with the first real API resource (see apps/web/lib/api/README.md)"

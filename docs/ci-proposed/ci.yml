@@ -112,12 +112,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: docker compose up --wait
+      # `docker compose up --wait` fails outright on any service in the up-set
+      # that declares no healthcheck ("container X has no healthcheck
+      # configured"), and otel-collector cannot declare one: the image is
+      # distroless, so there is no shell, curl or wget for a container-internal
+      # probe. --wait is therefore scoped to the services that DO have
+      # healthchecks. Their `depends_on` edges are unchanged, so minio-init
+      # still waits for minio to be healthy before creating buckets.
+      - name: docker compose up --wait (services with healthchecks)
         run: |
           set -euo pipefail
-          # --wait blocks on the healthchecks declared in docker-compose.yml and
-          # exits non-zero if any container fails to become healthy.
-          docker compose up -d --wait --wait-timeout 300
+          docker compose up -d --wait --wait-timeout 300 postgres redis minio
+
+      # Brought up separately and NOT waited on. Coverage is unaffected: the
+      # collector is verified by the external :13133 probe below, which is the
+      # only thing that ever verified it, and minio-init by its exit code.
+      - name: docker compose up — otel-collector and minio-init (no healthcheck)
+        run: |
+          set -euo pipefail
+          docker compose up -d otel-collector minio-init
+
+      # minio-init is one-shot. Wait for it to exit before asserting its code,
+      # otherwise the assertion races a container that is still running and
+      # reads an empty/zero ExitCode from a live container.
+      - name: wait for minio-init to complete
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            status=$(docker inspect -f '{{.State.Status}}' neptiq-minio-init)
+            [ "$status" = "exited" ] && break
+            sleep 2
+          done
+          if [ "$status" != "exited" ]; then
+            echo "FAIL: minio-init did not finish within 120s (status=$status)" >&2
+            docker compose logs minio-init
+            exit 1
+          fi
+
+      # Every service in the compose file must actually be running. --wait no
+      # longer covers otel-collector, so assert it explicitly — otherwise a
+      # collector that crash-looped on a bad config would be caught only by the
+      # :13133 probe, and a silently-missing service is exactly what Amendment
+      # E asks this job to detect.
+      - name: assert every expected service is running
+        run: |
+          set -euo pipefail
+          for c in neptiq-postgres neptiq-redis neptiq-minio neptiq-otel-collector; do
+            running=$(docker inspect -f '{{.State.Running}}' "$c")
+            if [ "$running" != "true" ]; then
+              echo "FAIL: container $c is not running" >&2
+              docker compose ps
+              docker compose logs --tail=80 "${c#neptiq-}"
+              exit 1
+            fi
+            echo "  running: $c"
+          done
 
       - name: PostgreSQL 18 — version and REQUIRED extensions
         run: |
@@ -242,9 +291,23 @@ jobs:
 
       - run: npm run lint
         working-directory: apps/web
-      - run: npm run typecheck
-        working-directory: apps/web
+
+      # BUILD BEFORE TYPECHECK — the order matters and is not stylistic.
+      #
+      # Next.js generates global route types (LayoutProps, PageProps, and the
+      # route union) into .next/types/ during `next build`. app/layout.tsx uses
+      # `LayoutProps<"/">`, and tsconfig.json includes ".next/types/**/*.ts".
+      # .next/ is correctly gitignored, so in a fresh checkout those types do
+      # not exist until the build has produced them. Running typecheck first
+      # fails with:
+      #     app/layout.tsx(76,50): error TS2304: Cannot find name 'LayoutProps'.
+      #
+      # This is also why the authoring sandbox reported a false pass: a build
+      # from an earlier session had left .next/types/ on disk. CI is right and
+      # the sandbox was wrong.
       - run: npm run build
+        working-directory: apps/web
+      - run: npm run typecheck
         working-directory: apps/web
 
       - name: assert Next.js version is pinned exactly to 16.3.3
