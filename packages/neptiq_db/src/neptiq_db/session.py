@@ -147,16 +147,30 @@ async def unscoped_session(
     *,
     reason: str,
 ) -> AsyncIterator[AsyncSession]:
-    """A session with NO org binding, for genuinely global tables only.
+    """A session with NO binding at all, for genuinely global tables only.
 
-    Legitimate uses are few: the login lookup (which must find a user before an
-    org is known) and the jobs reaper (which operates across tenants by design
-    and whose queries carry an explicit org_id column filter).
+    Legitimate uses are few: the jobs reaper (which operates across tenants by
+    design and whose queries carry an explicit org_id column filter) and
+    reading tables that carry no tenant column at all, such as ``users``.
 
     This does NOT bypass RLS — the application role has no BYPASSRLS attribute,
-    so any tenant table read here returns zero rows. That is the intended
-    behaviour: this session can only usefully touch tables that have no
-    org_id, and it fails closed on the ones that do.
+    so any table governed by an org-comparison policy returns zero rows here.
+    That is the intended behaviour: this session can only usefully touch
+    tables that have no org_id, and it fails closed on the ones that do.
+
+    **Not for the membership lookup.** An earlier version of this module's
+    docstring listed "the login lookup" as a legitimate use of this function,
+    but ``memberships`` is a tenant table (``org_id`` + RLS policy, ARCHITECTURE
+    §8 invariant 3): reading it through a session with no binding at all
+    returns zero rows against every policy in ``db/policies/``, which would
+    make every org resolution fail closed the moment RLS is enabled — a real
+    defect, found by writing the memberships policy and running it against
+    PostgreSQL rather than assuming the shape without checking (see ADR 0001
+    entry 13). Use ``identity_session`` for that lookup instead: it binds
+    ``user_id`` (identity is already known — that is the entire point of the
+    lookup) without binding ``org_id`` (not yet known), and the memberships
+    and organizations policies both grant access on a `user_id` match for
+    exactly this reason.
 
     ``reason`` is mandatory and is logged, so every use is traceable.
     """
@@ -166,6 +180,53 @@ async def unscoped_session(
     session = factory()
     try:
         async with session.begin():
+            yield session
+    finally:
+        await session.close()
+
+
+@contextlib.asynccontextmanager
+async def identity_session(
+    factory: async_sessionmaker[AsyncSession],
+    *,
+    user_id: UUID,
+    reason: str,
+) -> AsyncIterator[AsyncSession]:
+    """Yield a session bound to ``user_id`` only — no org_id, because none
+    is known yet.
+
+    This is the bootstrap step of ``get_tenant_context`` (see
+    ``apps/api/src/neptiq_api/deps/tenancy.py``): a user has authenticated
+    (step 1) but which org they are acting within has not been resolved yet
+    (step 2), so the membership lookup that resolves it must run BEFORE an
+    org_id exists to bind. Binding org_id here is not merely unavailable, it
+    would be wrong even as a guess: the lookup's whole job is to discover
+    which org(s) this identity may act within, and a session pre-bound to one
+    of them would bias — or, worse for a user who belongs to zero orgs named
+    in the URL, silently empty — the very query meant to answer that.
+
+    Bound identically to ``tenant_session``: ``is_local => true``, so the
+    setting cannot leak to the next request on a pooled connection. The
+    ``memberships`` and ``organizations`` policies in ``db/policies/`` grant
+    access on ``user_id = current_setting('neptiq.user_id', true)::uuid`` as
+    well as the usual org comparison, specifically so this session can resolve
+    "which orgs is this user a member of" while every other tenant table
+    remains invisible to it (no org_id is bound, so their org-only policies
+    deny every row — fails closed on tables this lookup has no business
+    reading).
+
+    ``reason`` is mandatory and logged, matching ``unscoped_session``.
+    """
+    if not reason or len(reason) < _MIN_REASON_CHARS:
+        raise AuthorizationError("identity_session() requires a substantive reason")
+    logger.info("opening identity-bound session", extra={"reason": reason})
+    session = factory()
+    try:
+        async with session.begin():
+            await session.execute(
+                text("SELECT set_config(:k, :v, true)"),
+                {"k": USER_ID_GUC, "v": str(user_id)},
+            )
             yield session
     finally:
         await session.close()
@@ -196,6 +257,7 @@ __all__ = [
     "USER_ID_GUC",
     "create_engine",
     "create_session_factory",
+    "identity_session",
     "install_rls_guard",
     "tenant_session",
     "unscoped_session",

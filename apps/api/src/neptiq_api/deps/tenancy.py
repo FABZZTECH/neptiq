@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from neptiq_core.errors import AuthenticationError, AuthorizationError
 from neptiq_db.models import Membership, Organization, Role
-from neptiq_db.session import tenant_session, unscoped_session
+from neptiq_db.session import identity_session, tenant_session
 
 # Roles ordered by capability, for `require_role`.
 _ROLE_RANK: dict[Role, int] = {
@@ -110,15 +110,24 @@ async def get_tenant_context(
 ) -> TenantContext:
     """Resolve and AUTHORIZE the org named in the path. Step 2 and 3.
 
-    The membership lookup runs in an unscoped session because the org id is not
-    yet known — that is the whole point of the lookup. It is safe because the
-    application role has no BYPASSRLS: the query can only read
-    ``organizations`` and ``memberships`` rows, and it filters by
-    ``user_id`` explicitly. A missing membership yields 403, not an empty
+    The membership lookup runs in an identity-bound session (user_id set, no
+    org_id — the org is not yet known, which is the whole point of the
+    lookup). It is safe because the application role has no BYPASSRLS: the
+    query can only read rows the ``memberships``/``organizations`` RLS
+    policies grant to this ``user_id``, and it filters by ``user_id``
+    explicitly on top of that. A missing membership yields 403, not an empty
     result that a caller might mistake for "no data".
+
+    This must NOT use ``unscoped_session``: that binds no identity at all, and
+    the memberships/organizations RLS policies key their "resolve my own
+    orgs" grant on ``neptiq.user_id`` being set — see ``db/policies/`` and
+    ``identity_session``'s docstring for why binding org_id here would be
+    wrong even if it were available.
     """
-    async with unscoped_session(
-        factory, reason="resolve org membership before an org_id is known"
+    async with identity_session(
+        factory,
+        user_id=principal.user_id,
+        reason="resolve org membership before an org_id is known",
     ) as session:
         row = (
             await session.execute(
