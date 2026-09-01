@@ -18,7 +18,7 @@ SHELL := /bin/bash
 # green build — that is the failure this gate exists to make impossible.
 # (Provisional values are finalised in todo 15 calibration against the real
 # committed suite counts; see the Task 2B report.)
-UNIT_MIN_EXECUTED ?= 86
+UNIT_MIN_EXECUTED ?= 99
 INTEGRATION_MIN_EXECUTED ?= 30
 SECURITY_MIN_EXECUTED ?= 109
 UV    ?= uv

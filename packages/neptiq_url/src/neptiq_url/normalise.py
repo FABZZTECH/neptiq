@@ -294,7 +294,17 @@ def normalise(url: str, *, strip_tracking: bool = True) -> str:
     if len(candidate) > MAX_URL_LENGTH:
         raise UrlNormalisationError(f"URL exceeds {MAX_URL_LENGTH} characters")
 
-    parts = urlsplit(candidate)
+    # urlsplit() itself rejects some malformed netlocs — a bracketed component
+    # that is not a valid IPv6 literal, "https://[::1]@metadata.goog/" being
+    # the found-by-probing example — and it raises bare ValueError doing so.
+    # This function's contract is that the only thing it ever raises is
+    # UrlNormalisationError: hostile pages feed the frontier arbitrary hrefs
+    # (fixture site 09), and an unexpected exception type is a crawler crash,
+    # not a rejection.
+    try:
+        parts = urlsplit(candidate)
+    except ValueError as exc:
+        raise UrlNormalisationError(f"unparseable URL: {exc}") from exc
 
     scheme = parts.scheme.lower()
     if scheme not in ALLOWED_SCHEMES:
@@ -319,11 +329,18 @@ def normalise(url: str, *, strip_tracking: bool = True) -> str:
     except ValueError as exc:
         raise UrlNormalisationError(f"invalid port: {exc}") from exc
 
-    netloc = host
+    # Rebuild the netloc, preserving bracketed literals. parts.hostname strips
+    # "[" and "]", but a bare IPv6 host cannot round-trip: "https://::1/"
+    # re-parses as an empty host plus a bogus port, breaking both idempotence
+    # and the §10 identity contract. A DNS name never contains ":" (idna
+    # rejects it), so a host that does — or that arrived bracketed, which also
+    # covers IPvFuture spellings — is a literal and must be re-bracketed.
+    was_bracketed = parts.netloc.startswith("[")
+    netloc = f"[{host}]" if was_bracketed or ":" in host else host
     if port is not None and port != DEFAULT_PORTS[scheme]:
         if not 1 <= port <= MAX_PORT:
             raise UrlNormalisationError(f"port {port} out of range")
-        netloc = f"{host}:{port}"
+        netloc = f"{netloc}:{port}"
 
     path = parts.path or "/"
     path = _normalise_percent_encoding(path, safe="/")

@@ -8,6 +8,7 @@ evidence ledger". These tests are the enforcement.
 from __future__ import annotations
 
 import contextlib
+from urllib.parse import urlsplit
 
 import pytest
 from hypothesis import given, settings
@@ -100,6 +101,91 @@ class TestRejections:
         # Browsers strip tab/newline inside URLs. Our parser must agree, or a
         # hostile page can point us somewhere the browser would not go.
         assert normalise("https://e.com/\tpath\n") == "https://e.com/path"
+
+
+class TestParseBoundaryRegression:
+    """Regression (Task 2B-1, defect 1): raw ValueError escaped the boundary.
+
+    ``urlsplit()`` raises a BARE ``ValueError`` for a bracketed netloc that is
+    not a valid IPv6 literal. ``normalise()``'s contract — the reason
+    ``test_never_crashes_on_arbitrary_text`` exists — is that the only thing
+    it ever raises is ``UrlNormalisationError``. These exact inputs crashed
+    with the raw stdlib exception before the fix.
+    """
+
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "https://[::1]@metadata.goog/",  # the found-by-probing input
+            "https://[evil.com]/",  # same escape route: DNS name inside brackets
+        ],
+    )
+    def test_malformed_bracketed_netloc_raises_urlnormalisationerror(self, bad: str) -> None:
+        # A bare ValueError is NOT an instance of UrlNormalisationError, so
+        # this raises-assertion fails on the pre-fix behaviour. That is the
+        # regression this test pins: rejection, never an unexpected crash.
+        with pytest.raises(UrlNormalisationError):
+            normalise(bad)
+
+
+class TestIpv6LiteralBracketPreservation:
+    """Regression (Task 2B-1, defect 2): bracketed IPv6 hosts lost their brackets.
+
+    ``parts.hostname`` strips ``[`` and ``]``, and the netloc rebuild never put
+    them back, so ``normalise("https://[::1]/")`` returned ``https://::1/`` —
+    a string no standard parser can re-read (empty host, bogus port). That
+    broke idempotence, the re-parse round-trip, and therefore the §10 identity
+    contract on every IPv6 target.
+    """
+
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://[::1]/", "https://[::1]/"),
+            (
+                "https://[2606:2800:220:1:248:1893:25c8:1946]/",
+                "https://[2606:2800:220:1:248:1893:25c8:1946]/",
+            ),
+            ("http://[fe80::1]:8080/x", "http://[fe80::1]:8080/x"),
+            ("https://[::1]:443/x", "https://[::1]/x"),  # default port still stripped
+        ],
+    )
+    def test_brackets_preserved(self, url: str, expected: str) -> None:
+        assert normalise(url) == expected
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::1]/",
+            "https://[2606:2800:220:1:248:1893:25c8:1946]/",
+            "http://[fe80::1]:8080/x",
+        ],
+    )
+    def test_output_re_parses_to_the_same_host(self, url: str) -> None:
+        # The §10 contract is about the OUTPUT: it must be a URL whose host
+        # survives a re-parse by a standard parser. The pre-fix output did not.
+        once = normalise(url)
+        assert urlsplit(once).hostname == urlsplit(url).hostname
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://[::1]/",
+            "https://[2606:2800:220:1:248:1893:25c8:1946]/",
+            "http://[fe80::1]:8080/x",
+        ],
+    )
+    def test_idempotent_on_ipv6_output(self, url: str) -> None:
+        # The general idempotence property test cannot reach these inputs
+        # (_SAFE_URLS generates DNS hosts only), so they are pinned here.
+        once = normalise(url)
+        assert normalise(once) == once
+
+    def test_distinct_ipv6_hosts_hash_differently(self) -> None:
+        # Injectivity (§10) must hold in IPv6 space too, now that the output
+        # round-trips. Before the fix, url_hash() happily hashed an unparseable
+        # string — the hash looked fine, which is how the defect hid.
+        assert url_hash("https://[::1]/") != url_hash("https://[fe80::1]/")
 
 
 _SAFE_URLS = st.builds(
