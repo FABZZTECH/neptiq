@@ -10,6 +10,17 @@
 # passes it means exactly that and nothing more — it does NOT mean `dev` works.
 
 SHELL := /bin/bash
+
+# Minimum EXECUTED-test floors enforced by tools/pytest_gate.py (Task 2B, C1).
+# A suite that collects but skips everything, or points at a missing path, is
+# RED no matter what pytest's exit code says. Floors are calibrated to the
+# committed suites; RAISE them when adding tests, never lower them to get a
+# green build — that is the failure this gate exists to make impossible.
+# (Provisional values are finalised in todo 15 calibration against the real
+# committed suite counts; see the Task 2B report.)
+UNIT_MIN_EXECUTED ?= 86
+INTEGRATION_MIN_EXECUTED ?= 30
+SECURITY_MIN_EXECUTED ?= 109
 UV    ?= uv
 COMPOSE ?= docker compose
 
@@ -69,17 +80,20 @@ format:
 typecheck: ## mypy strict
 	$(UV) run mypy packages apps/api tools
 
-test: ## Unit + property tests (no Docker required)
-	$(UV) run pytest tests/unit -q
+test: ## Unit + property tests (no Docker required; gated on executed count)
+	$(UV) run python tools/pytest_gate.py tests/unit --min-executed $(UNIT_MIN_EXECUTED) -- -q
 
 test-property:
 	$(UV) run pytest -m property -q
 
-test-integration: ## Testcontainers integration — REQUIRES DOCKER
-	$(UV) run pytest tests/integration -q
+test-integration: ## Real PostgreSQL integration — REQUIRES DOCKER (gated)
+	# Four-outcome gate: only genuinely-passing with >= floor EXECUTED tests is
+	# green. Catches the three vacuous greens: missing path (exit 4), nothing
+	# collected (exit 5), everything skipped (exit 0, ADR 0001 entry 9).
+	$(UV) run python tools/pytest_gate.py tests/integration --min-executed $(INTEGRATION_MIN_EXECUTED) -- -q
 
-test-security: ## Adversarial corpus: SSRF, injection, tenant isolation, XSS
-	$(UV) run pytest tests/security tests/unit/test_ssrf.py tests/unit/test_taint.py -q
+test-security: ## Adversarial corpus: SSRF, injection, tenant isolation, XSS (gated)
+	$(UV) run python tools/pytest_gate.py tests/security tests/unit/test_ssrf.py tests/unit/test_taint.py --min-executed $(SECURITY_MIN_EXECUTED) -- -q
 
 invariants: ## ARCHITECTURE §6 invariants + brand-token drift
 	$(UV) run python tools/check_zone_imports.py

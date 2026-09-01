@@ -147,8 +147,11 @@ def _canonicalise_numeric_host(host: str) -> str | None:  # noqa: PLR0911, PLR09
     Each branch is one documented SSRF bypass encoding, and each early return
     is "this is not that encoding". Refactoring into a table of handlers would
     hide which encodings are covered, and coverage is the security property
-    being asserted here. The adversarial corpus in tests/security enumerates
-    the same list.
+    being asserted here. The numeric encodings below are enumerated in
+    tests/unit/test_ssrf.py; the full adversarial corpus — a >=60-URL set
+    with real-DNS private-range names, redirect chains and cloud-metadata
+    endpoints — lives in tests/security/test_ssrf_corpus.py (Task 2B, ADR
+    0001 entry 9).
 
     Handles:
       * decimal   2130706433        -> 127.0.0.1
