@@ -62,6 +62,11 @@ ps:
 # --- Database -------------------------------------------------------------
 
 migrate: ## Apply migrations (forward-only, as the migrator role)
+	@# check_rls_coverage runs BEFORE upgrade head, not after: a coverage gap
+	@# (a tenant table with no policy file, or a policy file never wired into
+	@# 0002's _POLICY_FILES) is a reason not to migrate at all, not a thing to
+	@# discover once the schema is already live. See tools/check_rls_coverage.py.
+	$(UV) run python tools/check_rls_coverage.py
 	$(UV) run alembic -c db/alembic.ini upgrade head
 
 migrate-new: ## Create a revision: make migrate-new m="add x"
@@ -97,6 +102,7 @@ test-security: ## Adversarial corpus: SSRF, injection, tenant isolation, XSS (ga
 
 invariants: ## ARCHITECTURE §6 invariants + brand-token drift
 	$(UV) run python tools/check_zone_imports.py
+	$(UV) run python tools/check_rls_coverage.py
 	$(UV) run python tools/check_brand_tokens.py
 	$(UV) run python tools/check_ci_drift.py
 

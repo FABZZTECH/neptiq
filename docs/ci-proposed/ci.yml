@@ -69,6 +69,17 @@ jobs:
       - name: zone / import invariants
         run: uv run python tools/check_zone_imports.py
 
+      # ARCHITECTURE §6 invariant 3 (Task 2B-1 step 4b). Static only — no DB
+      # connection, so it belongs beside check_zone_imports.py in this job
+      # rather than in the Docker-requiring integration job: every
+      # TENANT_TABLES entry (neptiq_db.models) must have a db/policies/*.sql
+      # file, and every such file must be wired into migration 0002's
+      # _POLICY_FILES tuple. This is the exact missing check ADR 0001 entry
+      # 13 names as the one that would have exposed entry 6's false claim on
+      # day one.
+      - name: RLS coverage (invariant 3)
+        run: uv run python tools/check_rls_coverage.py
+
       # Task 1 amendment F. brand/tokens.css is the single source of truth; the
       # values are necessarily duplicated as literal hex into every SVG master
       # (raster exporters do not resolve CSS variables), into apps/web, and into
